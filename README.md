@@ -6,17 +6,18 @@ An Android TV app: an unofficial client for 30nama.com.
 
 > **Disclaimer:** This is an unofficial, community project. It is not affiliated with, endorsed by, or supported by 30nama. You need your own valid 30nama subscription to use it. No content is bundled with this app.
 
-This is an Android TV port of [**msharifi99/30nama-tizenos**](https://github.com/msharifi99/30nama-tizenos), the Samsung Tizen TV app by Rebin Sharifi. All of the UI comes from that project. This repo wraps it in a small native Android shell, as an alternative to the official Android TV app.
+This is an Android TV port of [**msharifi99/30nama-tizenos**](https://github.com/msharifi99/30nama-tizenos), the Samsung Tizen TV app by Rebin Sharifi. All of the UI comes from that project. Version 2 is a full native rewrite (Kotlin + Jetpack Compose for TV) of that app's UI and API client, as a lighter alternative to the official Android TV app.
 
 ## Features
 
 - Sign in by scanning a QR code with your phone
 - TV UI: hero banner, rows, details pages, search, remote-friendly navigation
-- Native **ExoPlayer** playback (hardware decoding) at the highest available quality, with the TV UI drawn on top
+- Fully native UI (Jetpack Compose for TV), no WebView: about half the memory of the WebView build
+- Native **ExoPlayer** playback (hardware decoding) at the highest available quality
 - Persian (fa) and English (en) subtitles, audio track switching, skip intro/recap, up next
 - Watch progress syncs with your 30nama account (Continue watching)
 - Persian UI with full right-to-left support
-- Small APK (~1.2 MB), works on Android TV / Google TV 6.0+
+- Small APK (~2.3 MB), works on Android TV / Google TV 6.0+
 
 ## Screenshots
 
@@ -40,14 +41,23 @@ This is an Android TV port of [**msharifi99/30nama-tizenos**](https://github.com
 
 ## How it works
 
-The web app from [`tizen-app/`](tizen-app) runs unchanged inside an Android WebView. A small shim ([`android-tv/app/src/main/web/android/shim.js`](android-tv/app/src/main/web/android/shim.js)) replaces the Tizen-only pieces:
+The app is native Kotlin, ported screen by screen from the Tizen web app in [`tizen-app/`](tizen-app):
 
-| Tizen | Android TV |
+| Tizen web app | Android TV app |
 |---|---|
-| `webapis.avplay` (Samsung player) | ExoPlayer on a `SurfaceView` behind a transparent WebView |
-| Network requests from the TV app | `fetch()` bridged to native OkHttp, so there's no CORS or proxy |
-| `tizen.tvinputdevice` remote keys | Back and media keys mapped to Tizen key codes |
-| `tizen.application.exit()` | Closes the activity |
+| `js/api.js` (discovery, rate-limited RPC queue) | [`data/Api.kt`](android-tv/app/src/main/java/com/nama30/tv/data/Api.kt) on OkHttp + coroutines |
+| `js/screens.js` (login, home, details, search, archive, settings) | Compose for TV screens in [`ui/`](android-tv/app/src/main/java/com/nama30/tv/ui) |
+| `js/player.js` (AVPlay, WebVTT overlay, skip intro, up next) | [`player/PlayerScreen.kt`](android-tv/app/src/main/java/com/nama30/tv/player/PlayerScreen.kt) on ExoPlayer |
+| `js/i18n.js` | [`ui/Strings.kt`](android-tv/app/src/main/java/com/nama30/tv/ui/Strings.kt) (generated from i18n.js) |
+
+Memory on the Google TV emulator (1080p, signed in, Home screen):
+
+| Build | PSS |
+|---|---|
+| v1.0.1 (WebView) | ~140 MB (app 75 MB + WebView renderer 66 MB) |
+| v2.0.0 (native) | ~67 MB |
+
+v1.0.1, which wrapped the web app in a WebView, is still available under [releases](../../releases/tag/v1.0.1).
 
 ## Build from source
 
@@ -59,12 +69,6 @@ echo "sdk.dir=$HOME/Library/Android/sdk" > local.properties   # path to your And
 ./gradlew assembleRelease
 # -> app/build/outputs/apk/release/app-release.apk
 ```
-
-At build time the web assets are copied from `tizen-app/`, so pulling upstream changes and rebuilding gives you an updated APK.
-
-## Optional: TMDB
-
-The upstream app can add trending rows, cast, reviews and recommendations from TMDB. Set it up the same way (see the [upstream instructions](https://github.com/msharifi99/30nama-tizenos#optional-tmdb-setup-build-from-source-only)): put your token in `tizen-app/js/tmdb-token.js` and rebuild. Release APKs ship without a token, so TMDB is off there.
 
 ## Samsung Tizen TV
 

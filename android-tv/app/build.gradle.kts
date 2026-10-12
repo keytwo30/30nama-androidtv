@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -11,8 +12,8 @@ android {
         applicationId = "com.nama30.tv"
         minSdk = 23
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.1"
+        versionCode = 2
+        versionName = "2.0.0"
     }
 
     buildTypes {
@@ -29,35 +30,25 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/webassets"))
+    buildFeatures { compose = true; buildConfig = true }
+    packaging { resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "DebugProbesKt.bin", "kotlin/**", "META-INF/*.version") }
 }
-
-// Bundle the Tizen web app (../../tizen-app) as assets/www, swapping Tizen-only scripts for the Android shim.
-val syncWeb by tasks.registering(Sync::class) {
-    from("../../tizen-app") {
-        exclude("tools/**", "config.xml", "README.md", "icon-512.png", "js/lib/hls.min.js", "js/tmdb-token.example.js")
-        filesMatching("index.html") {
-            filter { line ->
-                when {
-                    line.contains("name=\"viewport\"") -> "<meta name=\"viewport\" content=\"width=1920, user-scalable=no\">"
-                    line.contains("\$WEBAPIS") -> "<script src=\"android/shim.js\"></script>"
-                    line.contains("hls.min.js") -> ""
-                    else -> line
-                }
-            }
-        }
-        into("www")
-    }
-    from("src/main/web") { into("www") }
-    into(layout.buildDirectory.dir("generated/webassets"))
-}
-tasks.named("preBuild") { dependsOn(syncWeb) }
 
 dependencies {
+    val bom = platform("androidx.compose:compose-bom:2024.10.01")
+    implementation(bom)
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.tv:tv-material:1.0.0")
+    implementation("androidx.activity:activity-compose:1.9.3")
+
     val media3 = "1.4.1"
     implementation("androidx.media3:media3-exoplayer:$media3")
     implementation("androidx.media3:media3-exoplayer-hls:$media3")
     implementation("androidx.media3:media3-datasource-okhttp:$media3")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("androidx.webkit:webkit:1.12.1")
+    implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }

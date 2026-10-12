@@ -17,6 +17,10 @@ object Net {
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
+            .addInterceptor { ch ->
+                val r = ch.request()
+                ch.proceed(if (r.header("User-Agent") == null) r.newBuilder().header("User-Agent", UA).build() else r)
+            }
             .cache(Cache(File(cacheDir, "http"), 32L * 1024 * 1024))
             .build().also { client = it }
     }
