@@ -40,42 +40,4 @@ jobs:
           if [[ "$GITHUB_REF_TYPE" == "tag" && "$VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             sed -i -E "s/(<widget [^>]*version=\")[^\"]*(\")/\1${VER}\2/" stage/web/config.xml
           fi
-          grep -o 'version="[^"]*"' stage/web/config.xml | head -1
-
-      - name: Build and package with a throwaway author certificate
-        run: |
-          CERT_PW="$(openssl rand -hex 12)"
-          tizen certificate -a 30nama-community -p "$CERT_PW" -f throwaway -- "$PWD/stage"
-          tizen security-profiles add -n ci -a "$PWD/stage/throwaway.p12" -p "$CERT_PW"
-          tizen cli-config "profiles.path=$HOME/tizen-studio-data/profile/profiles.xml"
-          tizen build-web -out "$PWD/stage/out" -- "$PWD/stage/web"
-          mkdir -p dist
-          tizen package -t wgt -s ci -o "$PWD/dist" -- "$PWD/stage/out"
-          ls -l dist
-          rm -f stage/throwaway.p12
-
-      - name: Verify package contents
-        run: |
-          WGT="$(ls dist/*.wgt | head -1)"
-          unzip -l "$WGT"
-          if unzip -l "$WGT" | grep -E 'tmdb-token\.js|/tools/|\.p12|\.pwd'; then echo "forbidden file in wgt"; exit 1; fi
-          unzip -p "$WGT" 'js/*' config.xml index.html | grep -q 'eyJ' && { echo "JWT-like string in wgt"; exit 1; } || true
-          unzip -l "$WGT" | grep -q author-signature.xml
-          unzip -l "$WGT" | grep -q signature1.xml
-          mv "$WGT" "dist/30nama-${GITHUB_REF_NAME}.wgt"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: 30nama-wgt
-          path: dist/*.wgt
-
-      - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.wgt
-          generate_release_notes: true
-          body: |
-            Prebuilt `.wgt` for Samsung Tizen TVs. It is NOT signed for your TV:
-            install it with an installer that re-signs with your own certificate
-            (see the README, Option 2). Also installable as a TizenBrew module.
+          grep -o 'version="[^"]*"'
