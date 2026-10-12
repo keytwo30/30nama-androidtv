@@ -1,19 +1,22 @@
-# 30nama native app for Samsung Tizen TV
+# 30nama for Android TV / Google TV
 
-A Samsung Tizen TV app: an unofficial client for 30nama.com.
+An Android TV app: an unofficial client for 30nama.com.
 
 ![30nama TV](docs/images/poster.png)
 
 > **Disclaimer:** This is an unofficial, community project. It is not affiliated with, endorsed by, or supported by 30nama. You need your own valid 30nama subscription to use it. No content is bundled with this app.
 
+This is an Android TV port of [**msharifi99/30nama-tizenos**](https://github.com/msharifi99/30nama-tizenos), the Samsung Tizen TV app by Rebin Sharifi. All of the UI comes from that project. This repo wraps it in a small native Android shell, as an alternative to the official Android TV app.
+
 ## Features
 
 - Sign in by scanning a QR code with your phone
 - TV UI: hero banner, rows, details pages, search, remote-friendly navigation
-- Samsung AVPlay player with HLS playback at the highest available quality
-- Persian (fa) and English (en) subtitles
+- Native **ExoPlayer** playback (hardware decoding) at the highest available quality, with the TV UI drawn on top
+- Persian (fa) and English (en) subtitles, audio track switching, skip intro/recap, up next
+- Watch progress syncs with your 30nama account (Continue watching)
 - Persian UI with full right-to-left support
-- Optional TMDB enrichment: trending rows, cast and crew, reviews, recommendations
+- Small APK (~1.2 MB), works on Android TV / Google TV 6.0+
 
 ## Screenshots
 
@@ -25,74 +28,53 @@ A Samsung Tizen TV app: an unofficial client for 30nama.com.
 
 ## Install
 
-### Option 1: TizenBrew (simplest)
+1. Download `30nama-androidtv-v*.apk` from the [latest release](../../releases/latest).
+2. Sideload it on your TV, either way works:
+   - **adb:** on the TV open Settings → System → About and press OK on "Android TV OS build" 7 times, then turn on USB debugging in Settings → System → Developer options. From your computer:
+     ```
+     adb connect <tv-ip>:5555
+     adb install 30nama-androidtv-v1.0.1.apk
+     ```
+   - **Without a computer:** use an app like *Downloader* or *Send Files to TV* to get the APK onto the TV and open it.
+3. Launch **30nama** from the TV home screen (look under Apps if it isn't in the top row).
 
-1. Turn on Developer Mode on the TV: open Apps, type `12345`, switch Developer mode on, enter your PC's IP address, then reboot the TV.
-2. Install [TizenBrew](https://github.com/reisxd/TizenBrew/blob/main/docs/README.md) on the TV with the TizenBrew Installer (one-time).
-3. In TizenBrew open Module Manager, Add GitHub Module, and enter `msharifi99/30nama-tizenos`.
-4. Launch "30nama" from the TizenBrew home screen.
+## How it works
 
-Playback uses the TV's HTML5 player here (AVPlay is not available inside TizenBrew).
+The web app from [`tizen-app/`](tizen-app) runs unchanged inside an Android WebView. A small shim ([`android-tv/app/src/main/web/android/shim.js`](android-tv/app/src/main/web/android/shim.js)) replaces the Tizen-only pieces:
 
-### Option 2: prebuilt .wgt
+| Tizen | Android TV |
+|---|---|
+| `webapis.avplay` (Samsung player) | ExoPlayer on a `SurfaceView` behind a transparent WebView |
+| Network requests from the TV app | `fetch()` bridged to native OkHttp, so there's no CORS or proxy |
+| `tizen.tvinputdevice` remote keys | Back and media keys mapped to Tizen key codes |
+| `tizen.application.exit()` | Closes the activity |
 
-1. Turn on Developer Mode on the TV: open Apps, type `12345`, switch Developer mode on, enter your PC's IP address, then reboot the TV.
-2. Download `30nama-v*.wgt` from the [latest release](https://github.com/msharifi99/30nama-tizenos/releases/latest).
-3. Install [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases/latest) (Windows, Linux, macOS or Android). It handles your Samsung certificate and re-signs the package for your TV.
-4. In Apps2Samsung select your TV, choose a custom `.wgt`, pick the downloaded file and install. Tizen 7+ TVs ask you to sign in to a Samsung account once to create a certificate.
+## Build from source
 
-### Option 3: build from source
-
-First turn on Developer Mode on the TV: open Apps, type `12345`, switch Developer mode on, enter your PC's IP address, then reboot the TV.
-
-Requires [Tizen Studio](https://developer.tizen.org/development/tizen-studio/download) (CLI tools + TV extension), a Samsung certificate that includes your TV's DUID, and Git Bash (the scripts target Windows + Git Bash; `TIZEN_HOME` defaults to `/c/tizen-studio`).
-
-```
-./install-wizard.sh                              # guided: reads the DUID, creates certificate and profile
-./build.sh <security-profile> [<tv-ip>:26101]    # manual build; with a target it also installs and launches
-```
-
-## Optional: TMDB setup (build-from-source only)
-
-This repo uses TMDB to add trending rows, cast, reviews and recommendations. It is off by default and the app works fully without it.
-
-**Build-from-source only.** The token is baked in at build time, so this only applies when you [build from source](#option-3-build-from-source). The TizenBrew module and the prebuilt `.wgt` never include a token, so TMDB stays off there.
-
-1. Create a free account at themoviedb.org and copy your **API Read Access Token** (v4) from Settings, API.
-2. Copy the example file:
-   ```
-   cp tizen-app/js/tmdb-token.example.js tizen-app/js/tmdb-token.js
-   ```
-3. Open `tizen-app/js/tmdb-token.js` and paste the token between the quotes:
-   ```js
-   N.config.tmdbToken = 'eyJhbGciOi...';
-   ```
-4. Rebuild and reinstall. The Home screen then shows the extra rows, and Details gains cast, reviews and recommendations.
-
-## Development
-
-Run the app in a desktop browser with a small proxy (no dependencies, Node 18+):
+Requires JDK 17 and the Android SDK (platform 34).
 
 ```
-cd tizen-app
-node tools/devserver.js 8080
+cd android-tv
+echo "sdk.dir=$HOME/Library/Android/sdk" > local.properties   # path to your Android SDK
+./gradlew assembleRelease
+# -> app/build/outputs/apk/release/app-release.apk
 ```
 
-Then open http://localhost:8080/. The proxy forwards API and HLS requests to avoid CORS. See `tizen-app/README.md` for developer notes and `design/DESIGN.md` for the design spec.
+At build time the web assets are copied from `tizen-app/`, so pulling upstream changes and rebuilding gives you an updated APK.
 
-## Structure
+## Optional: TMDB
 
-```
-tizen-app/    the Tizen web app (config.xml, index.html, js/, css/, fonts/, tools/)
-design/       design spec
-docs/        README screenshots, TizenBrew notes
-package.json TizenBrew module manifest
-.github/     release workflow (experimental, manual run)
-media/        poster
-build.sh      build, sign and install
-install-wizard.sh  guided TV setup
-```
+The upstream app can add trending rows, cast, reviews and recommendations from TMDB. Set it up the same way (see the [upstream instructions](https://github.com/msharifi99/30nama-tizenos#optional-tmdb-setup-build-from-source-only)): put your token in `tizen-app/js/tmdb-token.js` and rebuild. Release APKs ship without a token, so TMDB is off there.
+
+## Samsung Tizen TV
+
+For the original Tizen version (TizenBrew, `.wgt`, building with Tizen Studio), see [msharifi99/30nama-tizenos](https://github.com/msharifi99/30nama-tizenos). The Tizen sources are still in this repo (`tizen-app/`, `build.sh`, `install-wizard.sh`).
+
+## Credits
+
+- [Rebin Sharifi (msharifi99)](https://github.com/msharifi99), who wrote [30nama-tizenos](https://github.com/msharifi99/30nama-tizenos): the whole TV UI, API client and player UI
+- Fonts: [Vazirmatn](https://github.com/rastikerdar/vazirmatn) (OFL)
 
 ## License
 
-Released under the [MIT License](LICENSE). The Vazirmatn font in `tizen-app/fonts/` is licensed under the SIL Open Font License (see `tizen-app/fonts/OFL.txt`).
+MIT, see [LICENSE](LICENSE).
